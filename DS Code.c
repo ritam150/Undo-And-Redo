@@ -1,74 +1,101 @@
 #include <stdio.h>
 #include <stdlib.h>
-#define MAX 10
+#include <string.h>
 
-struct stack {
-    int top;
-    int items[MAX];
-};
+#define MAX_SIZE 100
 
-typedef struct stack st;
-int count = 0;
+typedef struct Node {
+    char *text;
+    struct Node *next;
+} Node;
 
-void createEmptyStack(st *s) {
-    s->top = -1;
+typedef struct {
+    Node *top;
+} Stack;
+
+void initializeStack(Stack *stack) {
+    stack->top = NULL;
 }
 
-void push(st *s, int new) {
-    if (isfull(s)) {
-        printf("stack is full");
-    } else {
-        s->top++;
-        s->items[s->top] = new;
-        count++;
+void push(Stack *stack, const char *text) {
+    Node *newNode = (Node *)malloc(sizeof(Node));
+    newNode->text = strdup(text);
+    newNode->next = stack->top;
+    stack->top = newNode;
+}
+
+char *pop(Stack *stack) {
+    if (stack->top == NULL) {
+        return NULL;
+    }
+
+    Node *temp = stack->top;
+    char *text = strdup(temp->text);
+    stack->top = temp->next;
+    free(temp->text);
+    free(temp);
+
+    return text;
+}
+
+void undo(Stack *undoStack, Stack *redoStack, char *currentText) {
+    char *undoText = pop(undoStack);
+    if (undoText != NULL) {
+        push(redoStack, currentText);
+        strcpy(currentText, undoText);
+        free(undoText);
     }
 }
 
-void pop(st *s) {
-    if (isempty(s)) {
-        printf("empty stack");
-    } else {
-        printf("item popped = %d", s->items[s->top]);
-        s->top--;
-        count--;
+void redo(Stack *undoStack, Stack *redoStack, char *currentText) {
+    char *redoText = pop(redoStack);
+    if (redoText != NULL) {
+        push(undoStack, currentText);
+        strcpy(currentText, redoText);
+        free(redoText);
     }
 }
 
-void printStack(st *s) {
-    for (int i = 0; i < count; i++) {
-        printf("%d ", s->items[i]);
-    }
-    printf("\n");
-}
-
-int isfull(st *s) {
-    if (s->top == MAX - 1) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-
-int isempty(st *s) {
-    if (s->top == -1) {
-        return 1;
-    } else {
-        return 0;
-    }
+void displayText(const char *text) {
+    printf("Current Text: %s\n", text);
 }
 
 int main() {
-    int ch;
-    st *s = malloc(sizeof(st));
-    createEmptyStack(s);
-    push(s, 1);
-    push(s, 2);
-    push(s, 3);
-    push(s, 4);
-    printStack(s);
-    pop(s);
-    printStack(s);
+    Stack undoStack, redoStack;
+    initializeStack(&undoStack);
+    initializeStack(&redoStack);
 
-    free(s); // Don't forget to free the allocated memory.
+    char currentText[MAX_SIZE];
+    char userInput[MAX_SIZE];
+
+    printf("Enter initial text: ");
+    fgets(currentText, MAX_SIZE, stdin);
+    currentText[strcspn(currentText, "\n")] = '\0';
+
+    while (1) {
+        displayText(currentText);
+
+        printf("Enter text to append (or 'undo', 'redo', or 'exit'): ");
+        fgets(userInput, MAX_SIZE, stdin);
+        userInput[strcspn(userInput, "\n")] = '\0';
+
+        if (strcmp(userInput, "undo") == 0) {
+            undo(&undoStack, &redoStack, currentText);
+        } else if (strcmp(userInput, "redo") == 0) {
+            redo(&undoStack, &redoStack, currentText);
+        } else if (strcmp(userInput, "exit") == 0) {
+            break;
+        } else {
+            push(&undoStack, currentText);
+            strcat(currentText, userInput);
+        }
+    }
+
+    // Clean up: free memory used by the stacks
+    while (pop(&undoStack) != NULL)
+        ;
+    while (pop(&redoStack) != NULL)
+        ;
+
     return 0;
 }
